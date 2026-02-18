@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Clock, LayoutDashboard, Repeat } from 'lucide-react';
+import { Plus, Calendar, Clock, LayoutDashboard, Repeat, AlertCircle, Loader } from 'lucide-react';
 import EventCard from './EventCard';
 import AddEventModal from './AddEventModal';
-import { getEvents, addEvent, deleteEvent, updateEvent } from '../utils/localStorage';
+import { getEvents, addEvent, deleteEvent, updateEvent } from '../utils/api';
 
 const Dashboard = () => {
   const [events, setEvents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const savedEvents = getEvents();
-    if (savedEvents && savedEvents.length > 0) {
-      setTimeout(() => setEvents(savedEvents), 0);
-    }
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        const data = await getEvents();
+        setEvents(data);
+      } catch (err) {
+        setError('Could not connect to server. Check your connection.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvents();
 
     const clockTimer = setInterval(() => {
       setCurrentTime(new Date());
@@ -23,15 +33,19 @@ const Dashboard = () => {
     return () => clearInterval(clockTimer);
   }, []);
 
-  const handleSaveEvent = (eventData, id) => {
-    if (id) {
-      const updatedEvents = updateEvent(id, eventData);
-      setEvents(updatedEvents);
-    } else {
-      const newEvent = addEvent(eventData);
-      setEvents([...events, newEvent]);
+  const handleSaveEvent = async (eventData, id) => {
+    try {
+      if (id) {
+        const updated = await updateEvent(id, eventData);
+        setEvents(prev => prev.map(e => e.id === id ? updated : e));
+      } else {
+        const newEvent = await addEvent(eventData);
+        setEvents(prev => [...prev, newEvent]);
+      }
+      setEditingEvent(null);
+    } catch (err) {
+      setError('Failed to save event. Please try again.');
     }
-    setEditingEvent(null);
   };
 
   const handleEditEvent = (event) => {
@@ -39,9 +53,13 @@ const Dashboard = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteEvent = (id) => {
-    const updatedEvents = deleteEvent(id);
-    setEvents(updatedEvents);
+  const handleDeleteEvent = async (id) => {
+    try {
+      await deleteEvent(id);
+      setEvents(prev => prev.filter(e => e.id !== id));
+    } catch (err) {
+      setError('Failed to delete event. Please try again.');
+    }
   };
 
   const isEventActive = (event) => {
@@ -106,7 +124,20 @@ const Dashboard = () => {
         </button>
       </header>
 
-      {events.length === 0 ? (
+      {error && (
+        <div className="glass-card animate-fade-in" style={{ padding: '1rem 1.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', borderLeft: '3px solid #f87171', background: 'rgba(248,113,113,0.08)' }}>
+          <AlertCircle size={18} color="#f87171" />
+          <p style={{ color: '#f87171', fontSize: '0.875rem', margin: 0 }}>{error}</p>
+          <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="glass-card animate-fade-in" style={{ padding: '5rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+          <Loader size={40} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
+          <p style={{ color: 'var(--text-muted)' }}>Loading events from cloud…</p>
+        </div>
+      ) : events.length === 0 ? (
         <div 
           className="glass-card animate-fade-in" 
           style={{ padding: '5rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}
@@ -120,7 +151,7 @@ const Dashboard = () => {
       ) : (
         <>
           <div style={{ marginBottom: '4rem' }}>
-            <h2 style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Active & Upcoming</h2>
+            <h2 style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Active &amp; Upcoming</h2>
             {activeEvents.length > 0 ? (
               <div className="grid">
                 {activeEvents
@@ -181,7 +212,7 @@ const Dashboard = () => {
       />
 
       <footer style={{ marginTop: '5rem', textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)', borderTop: '1px solid var(--glass-border)' }}>
-        <p style={{ fontSize: '0.875rem' }}>&copy; {new Date().getFullYear()} Event Countdown. Purely Offline & Secure.</p>
+        <p style={{ fontSize: '0.875rem' }}>&copy; {new Date().getFullYear()} Event Countdown. Cloud-synced via MongoDB.</p>
       </footer>
     </div>
   );
