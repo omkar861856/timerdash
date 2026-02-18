@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, Clock, Repeat } from 'lucide-react';
+import { Trash2, Clock, Repeat, Plus } from 'lucide-react';
 
 const EventCard = ({ event, currentTime, onDelete, onEdit }) => {
   function calculateTimeLeft() {
