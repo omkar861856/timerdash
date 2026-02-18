@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Clock, LayoutDashboard, Repeat, AlertCircle, Loader } from 'lucide-react';
+import { Plus, Calendar, Clock, LayoutDashboard, Repeat, AlertCircle, Loader, History } from 'lucide-react';
 import EventCard from './EventCard';
+import PastEventCard from './PastEventCard';
 import AddEventModal from './AddEventModal';
 import { getEvents, addEvent, deleteEvent, updateEvent } from '../utils/api';
 
@@ -206,40 +207,21 @@ const Dashboard = () => {
           {pastEvents.length > 0 && (
             <div style={{ marginTop: '4rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                <Calendar size={18} color="var(--text-muted)" />
-                <h2 style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Past Events</h2>
+                <History size={18} color="#f87171" />
+                <h2 style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#f87171' }}>Past Events</h2>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>— time elapsed since</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div className="grid">
                 {pastEvents
                   .sort((a, b) => new Date(b.date) - new Date(a.date))
-                  .map(event => {
-                    const daysSince = Math.floor((currentTime - new Date(event.date)) / (1000 * 60 * 60 * 24));
-                    return (
-                      <div key={event.id} className="glass-card" style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.75 }}>
-                        <div>
-                          <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.2rem' }}>{event.name}</h3>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {new Date(event.date).toLocaleDateString(undefined, { dateStyle: 'long' })}
-                          </p>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <span style={{
-                            fontSize: '1.1rem', fontWeight: '700',
-                            color: '#f87171',
-                            background: 'rgba(248,113,113,0.1)',
-                            padding: '0.3rem 0.8rem',
-                            borderRadius: '8px',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            -{daysSince}d
-                          </span>
-                          <button onClick={() => handleDeleteEvent(event.id)} className="btn-ghost" style={{ padding: '0.5rem' }}>
-                            <Plus size={16} style={{ transform: 'rotate(45deg)' }} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  .map(event => (
+                    <PastEventCard
+                      key={event.id}
+                      event={event}
+                      currentTime={currentTime}
+                      onDelete={handleDeleteEvent}
+                    />
+                  ))}
               </div>
             </div>
           )}
