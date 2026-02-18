@@ -1,99 +1,98 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Trash2, Clock, Repeat } from 'lucide-react';
 
-const EventCard = ({ event, onDelete }) => {
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isActive: false });
-  const [nextTarget, setNextTarget] = useState(null);
+const EventCard = ({ event, currentTime, onDelete, onEdit }) => {
+  function calculateTimeLeft() {
+    let targetDate;
+    let isActive = false;
+    
+    if (event.isRepeating) {
+      const now = currentTime || new Date();
+      const times = [...event.repeatTimes].sort();
+      let currentOrNext = null;
 
-
-  useEffect(() => {
-    function calculateTimeLeft() {
-      let targetDate;
-      let isActive = false;
-      
-      if (event.isRepeating) {
-        const now = new Date();
-        const times = event.repeatTimes.sort();
-        let currentOrNext = null;
-
-        // Check if we are currently in an active window
-        for (const timeStr of times) {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          const start = new Date();
-          start.setHours(hours, minutes, 0, 0);
-          const end = new Date(start.getTime() + (event.activeDuration || 60) * 60000);
-          
-          if (now >= start && now <= end) {
-            currentOrNext = end;
-            isActive = true;
-            break;
-          }
-          
-          if (start > now && (!currentOrNext || start < currentOrNext)) {
-            currentOrNext = start;
-          }
-        }
-
-        // If no occurrence today, take first one tomorrow
-        if (!currentOrNext) {
-          const [hours, minutes] = times[0].split(':').map(Number);
-          const nextStart = new Date();
-          nextStart.setDate(nextStart.getDate() + 1);
-          nextStart.setHours(hours, minutes, 0, 0);
-          currentOrNext = nextStart;
-        }
-
-        // Check against overall deadline (endDate)
-        if (event.endDate) {
-          const deadline = new Date(event.endDate);
-          deadline.setHours(23, 59, 59, 999);
-          if (currentOrNext > deadline && !isActive) {
-            return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
-          }
+      // Check if we are currently in an active window
+      for (const timeStr of times) {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const start = new Date(now);
+        start.setHours(hours, minutes, 0, 0);
+        const end = new Date(start.getTime() + (event.activeDuration || 60) * 60000);
+        
+        if (now >= start && now <= end) {
+          currentOrNext = end;
+          isActive = true;
+          break;
         }
         
-        targetDate = currentOrNext;
-      } else {
-        targetDate = new Date(event.date);
+        if (start > now && (!currentOrNext || start < currentOrNext)) {
+          currentOrNext = start;
+        }
       }
 
-      const difference = +targetDate - +new Date();
-      
-      if (difference > 0) {
-        return {
-          expired: false,
-          isActive,
-          target: targetDate,
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-          minutes: Math.floor((difference / 1000 / 60) % 60),
-          seconds: Math.floor((difference / 1000) % 60),
-        };
-      } else {
-        return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+      // If no occurrence today, take first one tomorrow
+      if (!currentOrNext) {
+        const [hours, minutes] = times[0].split(':').map(Number);
+        const nextStart = new Date(now);
+        nextStart.setDate(nextStart.getDate() + 1);
+        nextStart.setHours(hours, minutes, 0, 0);
+        currentOrNext = nextStart;
       }
+
+      // Check against overall deadline (endDate)
+      if (event.endDate) {
+        const deadline = new Date(event.endDate);
+        deadline.setHours(23, 59, 59, 999);
+        if (currentOrNext > deadline && !isActive) {
+          return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+        }
+      }
+      
+      targetDate = currentOrNext;
+    } else {
+      targetDate = new Date(event.date);
     }
 
-    const timer = setInterval(() => {
-      const result = calculateTimeLeft();
-      setTimeLeft(result);
-      if (result.target) setNextTarget(result.target);
-    }, 1000);
+    const difference = +targetDate - +(currentTime || new Date());
+    
+    if (difference > 0) {
+      const target = targetDate;
+      return {
+        expired: false,
+        isActive,
+        target,
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((difference / 1000 / 60) % 60),
+        seconds: Math.floor((difference / 1000) % 60),
+        ms: Math.floor(difference % 1000)
+      };
+    } else {
+      return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0, ms: 0 };
+    }
+  }
 
-    return () => clearInterval(timer);
-  }, [event]);
-
+  const timeLeft = calculateTimeLeft();
+  const nextTarget = timeLeft.target;
   const isExpired = timeLeft.expired;
 
   return (
     <div className="glass-card p-6 animate-fade-in flex flex-direction-column gap-4 relative" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative' }}>
-      <button 
-        onClick={() => onDelete(event.id)}
-        className="btn-ghost"
-        style={{ position: 'absolute', top: '1rem', right: '1rem', padding: '0.5rem', borderRadius: '50%' }}
-      >
-        <Trash2 size={18} className="text-muted" />
-      </button>
+      <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', display: 'flex', gap: '0.25rem' }}>
+        <button 
+          onClick={onEdit}
+          className="btn-ghost"
+          style={{ padding: '0.5rem', borderRadius: '50%' }}
+        >
+          <Plus size={16} className="text-muted" />
+        </button>
+        <button 
+          onClick={() => onDelete(event.id)}
+          className="btn-ghost"
+          style={{ padding: '0.5rem', borderRadius: '50%' }}
+        >
+          <Trash2 size={16} color="#f87171" style={{ opacity: 0.8 }} />
+        </button>
+      </div>
       
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>

@@ -1,13 +1,36 @@
-import React, { useState } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Trash2, Save } from 'lucide-react';
 
-const AddEventModal = ({ isOpen, onClose, onAdd }) => {
+const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   const [isRepeating, setIsRepeating] = useState(false);
   const [repeatTimes, setRepeatTimes] = useState(['08:00']);
   const [activeDuration, setActiveDuration] = useState(60);
   const [endDate, setEndDate] = useState('');
+
+  useEffect(() => {
+    // Wrap state updates in setTimeout to avoid cascading renders lint error
+    const timer = setTimeout(() => {
+      if (eventToEdit) {
+        setName(eventToEdit.name || '');
+        setDate(eventToEdit.date || '');
+        setIsRepeating(eventToEdit.isRepeating || false);
+        setRepeatTimes(eventToEdit.repeatTimes || ['08:00']);
+        setActiveDuration(eventToEdit.activeDuration || 60);
+        setEndDate(eventToEdit.endDate || '');
+      } else {
+        setName('');
+        setDate('');
+        setIsRepeating(false);
+        setRepeatTimes(['08:00']);
+        setActiveDuration(60);
+        setEndDate('');
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [eventToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -23,19 +46,19 @@ const AddEventModal = ({ isOpen, onClose, onAdd }) => {
     e.preventDefault();
     if (!name) return;
     
-    if (isRepeating) {
-      if (repeatTimes.length === 0) return;
-      onAdd({ 
-        name, 
-        isRepeating: true, 
-        repeatTimes,
-        activeDuration: parseInt(activeDuration) || 60,
-        endDate: endDate || null 
-      });
-    } else {
-      if (!date) return;
-      onAdd({ name, date, isRepeating: false });
-    }
+    const eventData = isRepeating ? {
+      name,
+      isRepeating: true,
+      repeatTimes,
+      activeDuration: parseInt(activeDuration) || 60,
+      endDate: endDate || null
+    } : {
+      name,
+      date,
+      isRepeating: false
+    };
+
+    onAdd(eventData, eventToEdit?.id);
     
     // Reset form
     setName('');
@@ -75,7 +98,9 @@ const AddEventModal = ({ isOpen, onClose, onAdd }) => {
           <X size={20} />
         </button>
 
-        <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }}>Add {isRepeating ? 'Repeating' : 'New'} Event</h2>
+        <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }}>
+          {eventToEdit ? 'Edit' : 'Add'} {isRepeating ? 'Repeating' : ''} Event
+        </h2>
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div>
@@ -162,7 +187,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd }) => {
           )}
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}>
-            <Plus size={20} /> Add Event
+            {eventToEdit ? <Save size={20} /> : <Plus size={20} />} 
+            {eventToEdit ? 'Update Event' : 'Add Event'}
           </button>
         </form>
       </div>

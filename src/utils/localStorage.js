@@ -26,3 +26,13 @@ export const deleteEvent = (id) => {
   saveEvents(filteredEvents);
   return filteredEvents;
 };
+
+export const updateEvent = (id, updatedData) => {
+  const events = getEvents();
+  const index = events.findIndex(e => e.id === id);
+  if (index !== -1) {
+    events[index] = { ...events[index], ...updatedData };
+    saveEvents(events);
+  }
+  return events;
+};

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Clock, LayoutDashboard } from 'lucide-react';
+import { Plus, Calendar, Clock, LayoutDashboard, Repeat } from 'lucide-react';
 import EventCard from './EventCard';
 import AddEventModal from './AddEventModal';
-import { getEvents, addEvent, deleteEvent } from '../utils/localStorage';
+import { getEvents, addEvent, deleteEvent, updateEvent } from '../utils/localStorage';
 
 const Dashboard = () => {
   const [events, setEvents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -17,14 +18,25 @@ const Dashboard = () => {
 
     const clockTimer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 1000);
+    }, 10);
 
     return () => clearInterval(clockTimer);
   }, []);
 
-  const handleAddEvent = (eventData) => {
-    const newEvent = addEvent(eventData);
-    setEvents([...events, newEvent]);
+  const handleSaveEvent = (eventData, id) => {
+    if (id) {
+      const updatedEvents = updateEvent(id, eventData);
+      setEvents(updatedEvents);
+    } else {
+      const newEvent = addEvent(eventData);
+      setEvents([...events, newEvent]);
+    }
+    setEditingEvent(null);
+  };
+
+  const handleEditEvent = (event) => {
+    setEditingEvent(event);
+    setIsModalOpen(true);
   };
 
   const handleDeleteEvent = (id) => {
@@ -89,7 +101,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+        <button className="btn btn-primary" onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}>
           <Plus size={20} /> New Event
         </button>
       </header>
@@ -103,7 +115,7 @@ const Dashboard = () => {
             <Calendar size={48} />
           </div>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>No events yet</h2>
-          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>Add Event</button>
+          <button className="btn btn-primary" onClick={() => { setEditingEvent(null); setIsModalOpen(true); }}>Add Event</button>
         </div>
       ) : (
         <>
@@ -114,7 +126,13 @@ const Dashboard = () => {
                 {activeEvents
                   .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0))
                   .map(event => (
-                    <EventCard key={event.id} event={event} onDelete={handleDeleteEvent} />
+                    <EventCard 
+                      key={event.id} 
+                      event={event} 
+                      currentTime={currentTime} 
+                      onDelete={handleDeleteEvent} 
+                      onEdit={() => handleEditEvent(event)}
+                    />
                   ))
                 }
               </div>
@@ -139,9 +157,14 @@ const Dashboard = () => {
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Daily: {event.repeatTimes.join(', ')}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleDeleteEvent(event.id)} className="btn-ghost" style={{ padding: '0.5rem' }}>
-                      <Plus size={16} style={{ transform: 'rotate(45deg)' }} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={() => handleEditEvent(event)} className="btn-ghost" style={{ padding: '0.5rem' }}>
+                        <Plus size={16} />
+                      </button>
+                      <button onClick={() => handleDeleteEvent(event.id)} className="btn-ghost" style={{ padding: '0.5rem' }}>
+                        <Plus size={16} style={{ transform: 'rotate(45deg)' }} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -153,7 +176,8 @@ const Dashboard = () => {
       <AddEventModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onAdd={handleAddEvent} 
+        onAdd={handleSaveEvent}
+        eventToEdit={editingEvent}
       />
 
       <footer style={{ marginTop: '5rem', textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)', borderTop: '1px solid var(--glass-border)' }}>
