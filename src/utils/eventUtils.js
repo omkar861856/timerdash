@@ -146,14 +146,13 @@ export function formatRecurrence(event) {
   if (!event.isRepeating) return '';
   const { recurrence = { type: 'daily' } } = event;
   
-  let timeRanges = event.timeRanges;
-  if (!timeRanges && event.repeatTimes) {
-    timeRanges = event.repeatTimes.map(t => ({ startTime: t, endTime: '??:??' }));
-  } else if (!timeRanges) {
-    timeRanges = [];
+  let rangesStr = '';
+  if (event.timeRanges && event.timeRanges.length > 0) {
+    rangesStr = event.timeRanges.map(r => `${r.startTime || '??:??'}-${r.endTime || '??:??'}`).join(', ');
+  } else if (event.repeatTimes) {
+    const durMins = event.activeDuration || 60;
+    rangesStr = event.repeatTimes.map(t => `${t} (for ${durMins}m)`).join(', ');
   }
-  
-  const rangesStr = timeRanges.map(r => `${r.startTime || '??:??'}-${r.endTime || '??:??'}`).join(', ');
   
   if (recurrence.type === 'daily') return `Daily: ${rangesStr}`;
   if (recurrence.type === 'weekly' || recurrence.type === 'custom_days') {

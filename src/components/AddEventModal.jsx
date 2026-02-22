@@ -6,7 +6,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
   const [startDate, setStartDate] = useState('');
   const [endDateNormal, setEndDateNormal] = useState('');
   const [isRepeating, setIsRepeating] = useState(false);
-  const [timeRanges, setTimeRanges] = useState([{ startTime: '08:00', endTime: '09:00' }]);
+  const [repeatTimes, setRepeatTimes] = useState(['08:00']);
+  const [activeDuration, setActiveDuration] = useState(60);
   const [recurrence, setRecurrence] = useState({ type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
   const [endDate, setEndDate] = useState('');
 
@@ -18,7 +19,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
         setStartDate(eventToEdit.startDate || eventToEdit.date || '');
         setEndDateNormal(eventToEdit.endDate || '');
         setIsRepeating(eventToEdit.isRepeating || false);
-        setTimeRanges(eventToEdit.timeRanges || (eventToEdit.repeatTimes ? eventToEdit.repeatTimes.map(t => ({ startTime: t, endTime: '23:59' })) : [{ startTime: '08:00', endTime: '09:00' }]));
+        setRepeatTimes(eventToEdit.repeatTimes || (eventToEdit.timeRanges ? eventToEdit.timeRanges.map(t => t.startTime) : ['08:00']));
+        setActiveDuration(eventToEdit.activeDuration || 60);
         setRecurrence(eventToEdit.recurrence || { type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
         setEndDate(eventToEdit.endDate || '');
       } else {
@@ -26,7 +28,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
         setStartDate('');
         setEndDateNormal('');
         setIsRepeating(false);
-        setTimeRanges([{ startTime: '08:00', endTime: '09:00' }]);
+        setRepeatTimes(['08:00']);
+        setActiveDuration(60);
         setRecurrence({ type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
         setEndDate('');
       }
@@ -37,12 +40,12 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
 
   if (!isOpen) return null;
 
-  const handleAddTime = () => setTimeRanges([...timeRanges, { startTime: '12:00', endTime: '13:00' }]);
-  const handleRemoveTime = (index) => setTimeRanges(timeRanges.filter((_, i) => i !== index));
-  const handleTimeChange = (index, field, value) => {
-    const newRanges = [...timeRanges];
-    newRanges[index][field] = value;
-    setTimeRanges(newRanges);
+  const handleAddTime = () => setRepeatTimes([...repeatTimes, '12:00']);
+  const handleRemoveTime = (index) => setRepeatTimes(repeatTimes.filter((_, i) => i !== index));
+  const handleTimeChange = (index, value) => {
+    const newTimes = [...repeatTimes];
+    newTimes[index] = value;
+    setRepeatTimes(newTimes);
   };
   const handleDayOfWeekToggle = (day) => {
     const r = { ...recurrence };
@@ -61,7 +64,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
     const eventData = isRepeating ? {
       name,
       isRepeating: true,
-      timeRanges,
+      repeatTimes,
+      activeDuration: parseInt(activeDuration) || 60,
       recurrence,
       endDate: endDate || null
     } : {
@@ -78,7 +82,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
     setStartDate('');
     setEndDateNormal('');
     setIsRepeating(false);
-    setTimeRanges([{ startTime: '08:00', endTime: '09:00' }]);
+    setRepeatTimes(['08:00']);
+    setActiveDuration(60);
     setRecurrence({ type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
     setEndDate('');
     onClose();
@@ -211,26 +216,18 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
               )}
 
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Time Ranges (Start &amp; End)</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Daily Times (Start Time)</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {timeRanges.map((range, index) => (
+                  {repeatTimes.map((time, index) => (
                     <div key={index} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                       <input 
                         type="time" 
-                        value={range.startTime}
-                        onChange={e => handleTimeChange(index, 'startTime', e.target.value)}
+                        value={time}
+                        onChange={e => handleTimeChange(index, e.target.value)}
                         required
                         style={{ flex: 1 }}
                       />
-                      <span style={{ color: 'var(--text-muted)' }}>to</span>
-                      <input 
-                        type="time" 
-                        value={range.endTime}
-                        onChange={e => handleTimeChange(index, 'endTime', e.target.value)}
-                        required
-                        style={{ flex: 1 }}
-                      />
-                      {timeRanges.length > 1 && (
+                      {repeatTimes.length > 1 && (
                         <button type="button" onClick={() => handleRemoveTime(index)} className="btn-ghost" style={{ padding: '0.5rem' }}>
                           <Trash2 size={16} color="#f87171" />
                         </button>
@@ -238,9 +235,22 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
                     </div>
                   ))}
                   <button type="button" onClick={handleAddTime} className="btn-ghost" style={{ fontSize: '0.75rem', padding: '0.5rem', borderStyle: 'dashed' }}>
-                    <Plus size={14} /> Add another range
+                    <Plus size={14} /> Add another time
                   </button>
                 </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Active Window / Timer (minutes)</label>
+                <input 
+                  type="number" 
+                  value={activeDuration}
+                  onChange={e => setActiveDuration(e.target.value)}
+                  min="1"
+                  required
+                  placeholder="e.g. 60"
+                  style={{ width: '100%' }}
+                />
               </div>
               
               <div>
