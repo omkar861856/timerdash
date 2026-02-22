@@ -3,7 +3,8 @@ import { X, Plus, Trash2, Save } from 'lucide-react';
 
 const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
   const [name, setName] = useState('');
-  const [date, setDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDateNormal, setEndDateNormal] = useState('');
   const [isRepeating, setIsRepeating] = useState(false);
   const [timeRanges, setTimeRanges] = useState([{ startTime: '08:00', endTime: '09:00' }]);
   const [recurrence, setRecurrence] = useState({ type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
@@ -14,14 +15,16 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
     const timer = setTimeout(() => {
       if (eventToEdit) {
         setName(eventToEdit.name || '');
-        setDate(eventToEdit.date || '');
+        setStartDate(eventToEdit.startDate || eventToEdit.date || '');
+        setEndDateNormal(eventToEdit.endDate || '');
         setIsRepeating(eventToEdit.isRepeating || false);
         setTimeRanges(eventToEdit.timeRanges || (eventToEdit.repeatTimes ? eventToEdit.repeatTimes.map(t => ({ startTime: t, endTime: '23:59' })) : [{ startTime: '08:00', endTime: '09:00' }]));
         setRecurrence(eventToEdit.recurrence || { type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
         setEndDate(eventToEdit.endDate || '');
       } else {
         setName('');
-        setDate('');
+        setStartDate('');
+        setEndDateNormal('');
         setIsRepeating(false);
         setTimeRanges([{ startTime: '08:00', endTime: '09:00' }]);
         setRecurrence({ type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
@@ -63,7 +66,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
       endDate: endDate || null
     } : {
       name,
-      date,
+      startDate,
+      endDate: endDateNormal,
       isRepeating: false
     };
 
@@ -71,7 +75,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
     
     // Reset form
     setName('');
-    setDate('');
+    setStartDate('');
+    setEndDateNormal('');
     setIsRepeating(false);
     setTimeRanges([{ startTime: '08:00', endTime: '09:00' }]);
     setRecurrence({ type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
@@ -136,14 +141,25 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
           </div>
           
           {!isRepeating ? (
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Target Date & Time</label>
-              <input 
-                type="datetime-local" 
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                required={!isRepeating}
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Start Date & Time</label>
+                <input 
+                  type="datetime-local" 
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  required={!isRepeating}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>End Date & Time</label>
+                <input 
+                  type="datetime-local" 
+                  value={endDateNormal}
+                  onChange={e => setEndDateNormal(e.target.value)}
+                  required={!isRepeating}
+                />
+              </div>
             </div>
           ) : (
             <>

@@ -69,7 +69,7 @@ const Dashboard = () => {
   const activeEvents = events.filter(isEventActive);
   const scheduledEvents = events.filter(e => e.isRepeating && !isEventActive(e));
   // Past events: only non-repeating events whose date has passed
-  const pastEvents = events.filter(e => !e.isRepeating && new Date(e.date) < currentTime);
+  const pastEvents = events.filter(e => !e.isRepeating && new Date(e.endDate || e.startDate || e.date) < currentTime);
 
   return (
     <div className="container">
@@ -180,7 +180,7 @@ const Dashboard = () => {
               </div>
               <div className="grid">
                 {pastEvents
-                  .sort((a, b) => new Date(b.date) - new Date(a.date))
+                  .sort((a, b) => new Date(b.endDate || b.startDate || b.date) - new Date(a.endDate || a.startDate || a.date))
                   .map(event => (
                     <PastEventCard
                       key={event.id}

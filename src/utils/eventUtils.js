@@ -3,10 +3,18 @@ export function getEventStatus(event, nowObject) {
 
   // Non-repeating fallback
   if (!event.isRepeating) {
-    const targetDate = new Date(event.date);
-    const diff = +targetDate - +now;
-    if (diff > 0) return buildStatus(false, false, targetDate, diff);
-    return buildStatus(true, false, targetDate, diff);
+    const start = new Date(event.startDate || event.date);
+    const end = event.endDate ? new Date(event.endDate) : start;
+
+    if (now >= start && now <= end) {
+      const diff = +end - +now;
+      return buildStatus(false, true, end, diff);
+    } else if (now < start) {
+      const diff = +start - +now;
+      return buildStatus(false, false, start, diff);
+    } else {
+      return buildStatus(true, false, null, 0);
+    }
   }
 
   // Handle Legacy Data vs New Data
@@ -123,7 +131,10 @@ function buildStatus(expired, isActive, target, diff) {
 
 export function isEventActiveForDashboard(event, nowObject) {
   const now = nowObject || new Date();
-  if (!event.isRepeating) return +new Date(event.date) >= +now;
+  if (!event.isRepeating) {
+    const end = event.endDate ? new Date(event.endDate) : new Date(event.startDate || event.date);
+    return +end >= +now;
+  }
   
   const status = getEventStatus(event, now);
   if (status.isActive) return true;

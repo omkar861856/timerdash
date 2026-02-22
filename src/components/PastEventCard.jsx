@@ -2,7 +2,8 @@ import React from 'react';
 import { Trash2, History } from 'lucide-react';
 
 const PastEventCard = ({ event, currentTime, onDelete }) => {
-  const elapsed = currentTime - new Date(event.date);
+  const end = new Date(event.endDate || event.startDate || event.date);
+  const elapsed = currentTime - end;
   const totalSeconds = Math.floor(elapsed / 1000);
   const days    = Math.floor(totalSeconds / 86400);
   const hours   = Math.floor((totalSeconds % 86400) / 3600);
@@ -47,9 +48,9 @@ const PastEventCard = ({ event, currentTime, onDelete }) => {
           <h3 style={{ fontSize: '1.1rem', fontWeight: '600' }}>{event.name}</h3>
         </div>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          {new Date(event.date).toLocaleDateString(undefined, { dateStyle: 'long' })}
+          {end.toLocaleDateString(undefined, { dateStyle: 'long' })}
           {' · '}
-          {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
 

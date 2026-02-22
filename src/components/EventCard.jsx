@@ -34,7 +34,14 @@ const EventCard = ({ event, currentTime, onDelete, onEdit }) => {
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
           {event.isRepeating 
             ? timeLeft.isActive ? 'Action Required' : formatRecurrence(event)
-            : new Date(event.date).toLocaleDateString(undefined, { dateStyle: 'long' })
+            : (() => {
+                const s = new Date(event.startDate || event.date);
+                const sStr = s.toLocaleDateString(undefined, { dateStyle: 'medium' }) + ' ' + s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                if (!event.endDate) return sStr;
+                const e = new Date(event.endDate);
+                const eStr = e.toLocaleDateString(undefined, { dateStyle: 'medium' }) + ' ' + e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                return `${sStr} to ${eStr}`;
+              })()
           }
         </p>
       </div>
