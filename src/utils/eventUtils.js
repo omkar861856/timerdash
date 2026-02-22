@@ -1,75 +1,81 @@
 export function getEventStatus(event, nowObject) {
   const now = nowObject || new Date();
 
-  // Legacy fallback for non-repeating events
+  // Non-repeating fallback
   if (!event.isRepeating) {
     const targetDate = new Date(event.date);
-    const difference = +targetDate - +now;
-    if (difference > 0) {
-      return {
-        expired: false,
-        isActive: false, 
-        target: targetDate,
-        difference,
-        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-        minutes: Math.floor((difference / 1000 / 60) % 60),
-        seconds: Math.floor((difference / 1000) % 60),
-        ms: Math.floor(difference % 1000)
+    const diff = +targetDate - +now;
+    if (diff > 0) return buildStatus(false, false, targetDate, diff);
+    return buildStatus(true, false, targetDate, diff);
+  }
+
+  // Handle Legacy Data vs New Data
+  let timeRanges = event.timeRanges;
+  if (!timeRanges && event.repeatTimes) {
+    const durMins = event.activeDuration || 60;
+    timeRanges = event.repeatTimes.map(st => {
+      const parts = st.split(':');
+      if (parts.length !== 2) return null;
+      const h = Number(parts[0]);
+      const m = Number(parts[1]);
+      
+      const eh = Math.floor((h * 60 + m + durMins) / 60) % 24;
+      const em = (m + durMins) % 60;
+      
+      return { 
+        startTime: st, 
+        endTime: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}` 
       };
-    } else {
-      return { expired: true, isActive: false, target: targetDate, difference, days: 0, hours: 0, minutes: 0, seconds: 0, ms: 0 };
-    }
+    }).filter(Boolean);
+  } else if (!timeRanges) {
+    timeRanges = [];
   }
 
-  const { timeRanges = [], recurrence = { type: 'daily' }, endDate } = event;
-  
-  if (endDate) {
-    const deadline = new Date(endDate);
-    deadline.setHours(23, 59, 59, 999);
-    // Note: Event expires ONLY if deadline is passed AND it is not currently active
-    // We'll calculate this at the end
-  }
+  const { recurrence = { type: 'daily' }, endDate } = event;
 
-  const checkDay = (dateToCheck) => {
+  const isValidDay = (dateToCheck) => {
     if (recurrence.type === 'weekly' || recurrence.type === 'custom_days') {
-      const dayOfWeek = dateToCheck.getDay();
-      return recurrence.daysOfWeek && recurrence.daysOfWeek.includes(dayOfWeek);
-    } else if (recurrence.type === 'monthly') {
-      return dateToCheck.getDate() === recurrence.dayOfMonth;
+      const allowedDays = recurrence.daysOfWeek || [];
+      return allowedDays.includes(dateToCheck.getDay());
     }
-    return true; // daily or fallback
+    if (recurrence.type === 'monthly') {
+      return dateToCheck.getDate() === (recurrence.dayOfMonth || 1);
+    }
+    return true; // daily
   };
 
-  // Generate all occurrences from yesterday to next 35 days
+  // Generate occurrences across yesterday, today, and future 35 days using Date methods.
   let occurrences = [];
-  const checkOffsets = [-1]; // yesterday
-  for (let i = 0; i <= 35; i++) checkOffsets.push(i);
-
-  for (const offset of checkOffsets) {
-    const d = new Date(now.getTime() + offset * 86400000);
-    if (!checkDay(d)) continue;
+  for (let offset = -1; offset <= 35; offset++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + offset);
+    d.setHours(0, 0, 0, 0); // reset to midnight for clean comparison
+    
+    if (!isValidDay(d)) continue;
 
     for (const range of timeRanges) {
-      // timeRanges is [{ startTime: '23:00', endTime: '07:00' }]
-      const [startHs, startMs] = range.startTime.split(':').map(Number);
-      const [endHs, endMs] = range.endTime.split(':').map(Number);
+      if (!range.startTime || !range.endTime) continue;
+      const startParts = range.startTime.split(':');
+      const endParts = range.endTime.split(':');
+      if (startParts.length !== 2 || endParts.length !== 2) continue;
       
+      const sh = Number(startParts[0]), sm = Number(startParts[1]);
+      const eh = Number(endParts[0]), em = Number(endParts[1]);
+
       const start = new Date(d);
-      start.setHours(startHs, startMs, 0, 0);
+      start.setHours(sh, sm, 0, 0);
 
       const end = new Date(d);
-      end.setHours(endHs, endMs, 0, 0);
-      
+      end.setHours(eh, em, 0, 0);
+
       if (end <= start) {
-        end.setDate(end.getDate() + 1); // Spans midnight
+        end.setDate(end.getDate() + 1); // Spans midnight logically
       }
 
       occurrences.push({ start, end });
     }
   }
 
-  // Sort occurrences by start time
   occurrences.sort((a, b) => a.start - b.start);
 
   let isActive = false;
@@ -82,7 +88,7 @@ export function getEventStatus(event, nowObject) {
       break;
     }
     if (occ.start > now) {
-      currentOrNext = occ.start; // counting down to next start
+      currentOrNext = occ.start; // counting down to next occurence
       break;
     }
   }
@@ -90,68 +96,60 @@ export function getEventStatus(event, nowObject) {
   if (endDate) {
     const deadline = new Date(endDate);
     deadline.setHours(23, 59, 59, 999);
-    if (now > deadline && !isActive) {
-      return { expired: true, isActive: false, target: null, difference: 0, days: 0, hours: 0, minutes: 0, seconds: 0, ms: 0 };
-    }
-    if (currentOrNext && currentOrNext > deadline) {
-      currentOrNext = null;
-    }
+    if (now > deadline && !isActive) return buildStatus(true, false, null, 0);
+    if (currentOrNext && currentOrNext > deadline) currentOrNext = null;
   }
 
-  if (!currentOrNext) {
-    return { expired: true, isActive: false, target: null, difference: 0, days: 0, hours: 0, minutes: 0, seconds: 0, ms: 0 };
-  }
+  if (!currentOrNext) return buildStatus(true, false, null, 0);
 
-  const targetDate = currentOrNext;
-  const difference = +targetDate - +now;
+  const difference = +currentOrNext - +now;
+  return buildStatus(false, isActive, currentOrNext, difference);
+}
 
+function buildStatus(expired, isActive, target, diff) {
+  diff = Math.max(0, diff || 0);
   return {
-    expired: false,
+    expired,
     isActive,
-    target: targetDate,
-    difference,
-    days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-    minutes: Math.floor((difference / 1000 / 60) % 60),
-    seconds: Math.floor((difference / 1000) % 60),
-    ms: Math.floor(difference % 1000)
+    target,
+    difference: diff,
+    days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+    hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+    minutes: Math.floor((diff / 1000 / 60) % 60),
+    seconds: Math.floor((diff / 1000) % 60),
+    ms: Math.floor(diff % 1000)
   };
 }
 
-export function isEventActiveForDashboard(event, now) {
-  if (!event.isRepeating) {
-    return +new Date(event.date) >= +now;
-  }
+export function isEventActiveForDashboard(event, nowObject) {
+  const now = nowObject || new Date();
+  if (!event.isRepeating) return +new Date(event.date) >= +now;
   
   const status = getEventStatus(event, now);
-  
   if (status.isActive) return true;
-  
-  if (status.target && !status.expired) {
-    const preShow = 30 * 60000;
-    if (status.target.getTime() - now.getTime() <= preShow) {
-      return true;
-    }
-  }
-  
-  
+  if (status.target && !status.expired && (status.target.getTime() - now.getTime() <= 30 * 60000)) return true;
   return false;
 }
 
 export function formatRecurrence(event) {
   if (!event.isRepeating) return '';
-  const { recurrence = { type: 'daily' }, timeRanges = [] } = event;
+  const { recurrence = { type: 'daily' } } = event;
   
-  const rangesStr = timeRanges.map(r => `${r.startTime}-${r.endTime}`).join(', ');
+  let timeRanges = event.timeRanges;
+  if (!timeRanges && event.repeatTimes) {
+    timeRanges = event.repeatTimes.map(t => ({ startTime: t, endTime: '??:??' }));
+  } else if (!timeRanges) {
+    timeRanges = [];
+  }
   
-  if (recurrence.type === 'daily') {
-    return `Daily: ${rangesStr}`;
-  } else if (recurrence.type === 'weekly' || recurrence.type === 'custom_days') {
+  const rangesStr = timeRanges.map(r => `${r.startTime || '??:??'}-${r.endTime || '??:??'}`).join(', ');
+  
+  if (recurrence.type === 'daily') return `Daily: ${rangesStr}`;
+  if (recurrence.type === 'weekly' || recurrence.type === 'custom_days') {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const activeDays = (recurrence.daysOfWeek || []).map(d => days[d]).join(', ');
     return `Weekly on ${activeDays}: ${rangesStr}`;
-  } else if (recurrence.type === 'monthly') {
-    return `Monthly on the ${recurrence.dayOfMonth}: ${rangesStr}`;
   }
+  if (recurrence.type === 'monthly') return `Monthly on the ${recurrence.dayOfMonth || 1}: ${rangesStr}`;
   return rangesStr;
 }
