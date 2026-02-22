@@ -1,77 +1,9 @@
 import React from 'react';
 import { Trash2, Clock, Repeat, Plus } from 'lucide-react';
+import { getEventStatus, formatRecurrence } from '../utils/eventUtils';
 
 const EventCard = ({ event, currentTime, onDelete, onEdit }) => {
-  function calculateTimeLeft() {
-    let targetDate;
-    let isActive = false;
-    
-    if (event.isRepeating) {
-      const now = currentTime || new Date();
-      const times = [...event.repeatTimes].sort();
-      let currentOrNext = null;
-
-      // Check if we are currently in an active window
-      for (const timeStr of times) {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const start = new Date(now);
-        start.setHours(hours, minutes, 0, 0);
-        const end = new Date(start.getTime() + (event.activeDuration || 60) * 60000);
-        
-        if (now >= start && now <= end) {
-          currentOrNext = end;
-          isActive = true;
-          break;
-        }
-        
-        if (start > now && (!currentOrNext || start < currentOrNext)) {
-          currentOrNext = start;
-        }
-      }
-
-      // If no occurrence today, take first one tomorrow
-      if (!currentOrNext) {
-        const [hours, minutes] = times[0].split(':').map(Number);
-        const nextStart = new Date(now);
-        nextStart.setDate(nextStart.getDate() + 1);
-        nextStart.setHours(hours, minutes, 0, 0);
-        currentOrNext = nextStart;
-      }
-
-      // Check against overall deadline (endDate)
-      if (event.endDate) {
-        const deadline = new Date(event.endDate);
-        deadline.setHours(23, 59, 59, 999);
-        if (currentOrNext > deadline && !isActive) {
-          return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
-        }
-      }
-      
-      targetDate = currentOrNext;
-    } else {
-      targetDate = new Date(event.date);
-    }
-
-    const difference = +targetDate - +(currentTime || new Date());
-    
-    if (difference > 0) {
-      const target = targetDate;
-      return {
-        expired: false,
-        isActive,
-        target,
-        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-        minutes: Math.floor((difference / 1000 / 60) % 60),
-        seconds: Math.floor((difference / 1000) % 60),
-        ms: Math.floor(difference % 1000)
-      };
-    } else {
-      return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0, ms: 0 };
-    }
-  }
-
-  const timeLeft = calculateTimeLeft();
+  const timeLeft = getEventStatus(event, currentTime || new Date());
   const nextTarget = timeLeft.target;
   const isExpired = timeLeft.expired;
 
@@ -101,7 +33,7 @@ const EventCard = ({ event, currentTime, onDelete, onEdit }) => {
         </div>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
           {event.isRepeating 
-            ? timeLeft.isActive ? 'Action Required' : `Daily: ${event.repeatTimes.join(', ')}`
+            ? timeLeft.isActive ? 'Action Required' : formatRecurrence(event)
             : new Date(event.date).toLocaleDateString(undefined, { dateStyle: 'long' })
           }
         </p>

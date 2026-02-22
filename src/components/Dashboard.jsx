@@ -4,6 +4,7 @@ import EventCard from './EventCard';
 import PastEventCard from './PastEventCard';
 import AddEventModal from './AddEventModal';
 import { getEvents, addEvent, deleteEvent, updateEvent } from '../utils/api';
+import { isEventActiveForDashboard, formatRecurrence } from '../utils/eventUtils';
 
 const Dashboard = () => {
   const [events, setEvents] = useState([]);
@@ -63,41 +64,7 @@ const Dashboard = () => {
     }
   };
 
-  const isEventActive = (event) => {
-    if (!event.isRepeating) return true;
-    
-    const now = currentTime;
-    const times = event.repeatTimes;
-    const duration = (event.activeDuration || 60) * 60000;
-    const preShow = 30 * 60000;
-
-    if (event.endDate) {
-      const deadline = new Date(event.endDate);
-      deadline.setHours(23, 59, 59, 999);
-      if (now > deadline) return false;
-    }
-
-    return times.some(timeStr => {
-      const [hours, minutes] = timeStr.split(':').map(Number);
-      const start = new Date();
-      start.setHours(hours, minutes, 0, 0);
-      const end = new Date(start.getTime() + duration);
-      const showTime = new Date(start.getTime() - preShow);
-      
-      if (now >= showTime && now <= end) return true;
-      
-      const nextStart = new Date(start);
-      nextStart.setDate(nextStart.getDate() + 1);
-      const nextShow = new Date(nextStart.getTime() - preShow);
-      const nextEnd = new Date(nextStart.getTime() + duration);
-      
-      if (event.endDate) {
-        if (nextStart > new Date(event.endDate).setHours(23,59,59,999)) return false;
-      }
-
-      return now >= nextShow && now <= nextEnd;
-    });
-  };
+  const isEventActive = (event) => isEventActiveForDashboard(event, currentTime);
 
   const activeEvents = events.filter(isEventActive);
   const scheduledEvents = events.filter(e => e.isRepeating && !isEventActive(e));
@@ -188,7 +155,7 @@ const Dashboard = () => {
                       <Repeat size={16} color="var(--primary)" />
                       <div>
                         <h3 style={{ fontSize: '1rem', fontWeight: '600' }}>{event.name}</h3>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Daily: {event.repeatTimes.join(', ')}</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatRecurrence(event)}</p>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>

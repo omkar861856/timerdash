@@ -5,8 +5,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   const [isRepeating, setIsRepeating] = useState(false);
-  const [repeatTimes, setRepeatTimes] = useState(['08:00']);
-  const [activeDuration, setActiveDuration] = useState(60);
+  const [timeRanges, setTimeRanges] = useState([{ startTime: '08:00', endTime: '09:00' }]);
+  const [recurrence, setRecurrence] = useState({ type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
   const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
@@ -16,15 +16,15 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
         setName(eventToEdit.name || '');
         setDate(eventToEdit.date || '');
         setIsRepeating(eventToEdit.isRepeating || false);
-        setRepeatTimes(eventToEdit.repeatTimes || ['08:00']);
-        setActiveDuration(eventToEdit.activeDuration || 60);
+        setTimeRanges(eventToEdit.timeRanges || (eventToEdit.repeatTimes ? eventToEdit.repeatTimes.map(t => ({ startTime: t, endTime: '23:59' })) : [{ startTime: '08:00', endTime: '09:00' }]));
+        setRecurrence(eventToEdit.recurrence || { type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
         setEndDate(eventToEdit.endDate || '');
       } else {
         setName('');
         setDate('');
         setIsRepeating(false);
-        setRepeatTimes(['08:00']);
-        setActiveDuration(60);
+        setTimeRanges([{ startTime: '08:00', endTime: '09:00' }]);
+        setRecurrence({ type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
         setEndDate('');
       }
     }, 0);
@@ -34,12 +34,21 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
 
   if (!isOpen) return null;
 
-  const handleAddTime = () => setRepeatTimes([...repeatTimes, '12:00']);
-  const handleRemoveTime = (index) => setRepeatTimes(repeatTimes.filter((_, i) => i !== index));
-  const handleTimeChange = (index, value) => {
-    const newTimes = [...repeatTimes];
-    newTimes[index] = value;
-    setRepeatTimes(newTimes);
+  const handleAddTime = () => setTimeRanges([...timeRanges, { startTime: '12:00', endTime: '13:00' }]);
+  const handleRemoveTime = (index) => setTimeRanges(timeRanges.filter((_, i) => i !== index));
+  const handleTimeChange = (index, field, value) => {
+    const newRanges = [...timeRanges];
+    newRanges[index][field] = value;
+    setTimeRanges(newRanges);
+  };
+  const handleDayOfWeekToggle = (day) => {
+    const r = { ...recurrence };
+    if (r.daysOfWeek.includes(day)) {
+      r.daysOfWeek = r.daysOfWeek.filter(d => d !== day);
+    } else {
+      r.daysOfWeek = [...r.daysOfWeek, day];
+    }
+    setRecurrence(r);
   };
 
   const handleSubmit = (e) => {
@@ -49,8 +58,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
     const eventData = isRepeating ? {
       name,
       isRepeating: true,
-      repeatTimes,
-      activeDuration: parseInt(activeDuration) || 60,
+      timeRanges,
+      recurrence,
       endDate: endDate || null
     } : {
       name,
@@ -64,8 +73,8 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
     setName('');
     setDate('');
     setIsRepeating(false);
-    setRepeatTimes(['08:00']);
-    setActiveDuration(60);
+    setTimeRanges([{ startTime: '08:00', endTime: '09:00' }]);
+    setRecurrence({ type: 'daily', daysOfWeek: [], dayOfMonth: 1 });
     setEndDate('');
     onClose();
   };
@@ -123,7 +132,7 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
               onChange={e => setIsRepeating(e.target.checked)}
               style={{ width: 'auto' }}
             />
-            <label htmlFor="isRepeating" style={{ fontSize: '0.875rem', cursor: 'pointer' }}>Repeating Event (Daily)</label>
+            <label htmlFor="isRepeating" style={{ fontSize: '0.875rem', cursor: 'pointer' }}>Repeating Event</label>
           </div>
           
           {!isRepeating ? (
@@ -139,17 +148,73 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
           ) : (
             <>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Daily Times</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Recurrence Type</label>
+                <select
+                  value={recurrence.type}
+                  onChange={e => setRecurrence({ ...recurrence, type: e.target.value })}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="custom_days">Custom Days of Week</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+
+              {(recurrence.type === 'weekly' || recurrence.type === 'custom_days') && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Days of Week</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, dIdx) => (
+                      <label key={day} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem' }}>
+                        <input
+                          type="checkbox"
+                          checked={recurrence.daysOfWeek.includes(dIdx)}
+                          onChange={() => handleDayOfWeekToggle(dIdx)}
+                          style={{ width: 'auto', margin: 0 }}
+                        />
+                        {day}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {recurrence.type === 'monthly' && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Day of Month</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={recurrence.dayOfMonth}
+                    onChange={e => setRecurrence({ ...recurrence, dayOfMonth: parseInt(e.target.value) || 1 })}
+                    required
+                  />
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Time Ranges (Start &amp; End)</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {repeatTimes.map((time, index) => (
-                    <div key={index} style={{ display: 'flex', gap: '0.5rem' }}>
+                  {timeRanges.map((range, index) => (
+                    <div key={index} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                       <input 
                         type="time" 
-                        value={time}
-                        onChange={e => handleTimeChange(index, e.target.value)}
+                        value={range.startTime}
+                        onChange={e => handleTimeChange(index, 'startTime', e.target.value)}
                         required
+                        style={{ flex: 1 }}
                       />
-                      {repeatTimes.length > 1 && (
+                      <span style={{ color: 'var(--text-muted)' }}>to</span>
+                      <input 
+                        type="time" 
+                        value={range.endTime}
+                        onChange={e => handleTimeChange(index, 'endTime', e.target.value)}
+                        required
+                        style={{ flex: 1 }}
+                      />
+                      {timeRanges.length > 1 && (
                         <button type="button" onClick={() => handleRemoveTime(index)} className="btn-ghost" style={{ padding: '0.5rem' }}>
                           <Trash2 size={16} color="#f87171" />
                         </button>
@@ -157,21 +222,9 @@ const AddEventModal = ({ isOpen, onClose, onAdd, eventToEdit }) => {
                     </div>
                   ))}
                   <button type="button" onClick={handleAddTime} className="btn-ghost" style={{ fontSize: '0.75rem', padding: '0.5rem', borderStyle: 'dashed' }}>
-                    <Plus size={14} /> Add another time
+                    <Plus size={14} /> Add another range
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Active Window (minutes)</label>
-                <input 
-                  type="number" 
-                  value={activeDuration}
-                  onChange={e => setActiveDuration(e.target.value)}
-                  min="1"
-                  required
-                  placeholder="e.g. 60"
-                />
               </div>
               
               <div>
